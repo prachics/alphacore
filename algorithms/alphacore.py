@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import math
+import warnings
 
 # alphaCore ranking of nodes in a complex, directed network
 #
@@ -107,21 +108,20 @@ def extractFeatures(graph, features=["all"]):
     #Determine the features to extract
     if features == ["all"]:
         if not numeric_features:
-            print("No numerical node features found. Reverting to default AlphaCore node features.")
+            warnings.warn("No numerical node features found. Reverting to default AlphaCore node features.", stacklevel=2)
             return computeNodeFeatures(graph)
         selected_features = numeric_features  # Use all numeric features
     else:
         for feature in features:
             if feature not in all_features:
-                print(f"Debug: Available features: {all_features}")
+                warnings.warn(f"Debug: Available features: {all_features}", stacklevel=2)
                 raise ValueError(f"Feature '{feature}' not found in graph nodes. Please check your graph.")
             if feature in numeric_features:
                 selected_features.add(feature)
 
         if not selected_features:
-            print("None of the selected features contain numerical values. Reverting to default AlphaCore node features.")
+            warnings.warn("None of the selected features contain numerical values. Reverting to default AlphaCore node features.", stacklevel=2)
             return computeNodeFeatures(graph)
-
 
     #Extract feature values for each node
     for node_id, attributes in graph.nodes(data=True):
@@ -178,7 +178,7 @@ def calculateMahalFromCenter(data, center, cov):
     try: 
         inv_cov = np.linalg.inv(cov)
     except np.linalg.LinAlgError:
-        print("Covariance matrix is not invertible, using Moore-Penrose pseudo-inverse instead.")  
+        warnings.warn("Covariance matrix is not invertible, using Moore-Penrose pseudo-inverse instead.", stacklevel=2)
         inv_cov = np.linalg.pinv(cov)
     left = np.dot(x_minus_center, inv_cov)
     mahal = np.dot(left, x_minus_center_transposed)

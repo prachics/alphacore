@@ -22,11 +22,11 @@ alphaCore <- function(input_graph,
                       stepSize = 0.1,
                       startEpsilon = 1,
                       exponentialDecay = TRUE) {
-  #1 Extract numerical node features from the graph
+  # 1 Extract numerical node features from the graph
   node_features <- extractFeatures(input_graph, features)
 
-  #2 Compute covariance matrix
-  cov_mat  <- cov(node_features[, -1, with = FALSE])
+  # 2 Compute covariance matrix
+  cov_mat <- cov(node_features[, -1, with = FALSE])
   cov_mat_inv <- tryCatch(
     solve(cov_mat),
     error = function(e1) {
@@ -38,59 +38,56 @@ alphaCore <- function(input_graph,
       mat
     }
   )
-  #3
+  # 3
   node_features$depth <- mhdOrigin(node_features[, -1, with = FALSE], cov_mat_inv)
 
-  #4
+  # 4
   epsilon <- startEpsilon
-  #5
+  # 5
   result <- node_features[, c("node")]
   result$alpha <- 0
-  #6
+  # 6
   result$batch <- 0
-  #7
-  alpha <- 1 - epsilon # modified
-  #8
-  alpha_prev <- alpha # modified
-  #9
+  # 7
+  alpha <- 1 - epsilon
+  # 8
+  alpha_prev <- alpha
+  # 9
   batch_ID <- 0
-  #10
+  # 10
   while (vcount(input_graph) > 0) {
-    #11
+    # 11
     repeat{
-      #12: for each depth geq epsilon
-      #13
+      # 12: for each depth geq epsilon
+      # 13
       nodes <- node_features[depth >= epsilon]$node
       result[node %in% nodes, alpha := alpha_prev]
-      #14
       result[node %in% nodes, batch := batch_ID]
       input_graph <- delete_vertices(input_graph, nodes)
-      #16 
+      # 16
       batch_ID <- batch_ID + 1
-      #17
+      # 17
       node_features <- extractFeatures(input_graph, features)
-      #18
+      # 18
       node_features$depth <- mhdOrigin(node_features[, -1, with = FALSE], cov_mat_inv)
-      
-      if(length(nodes) == 0){ # 19 : if there doesn't exist a vertex with depth geq epsilon
+
+      if (length(nodes) == 0) { # 19 : if there doesn't exist a vertex with depth geq epsilon
         break
       }
     }
-    #20
+    # 20
     alpha_prev <- alpha
-    #22 # reduce epsilon with strategy
-    if(exponentialDecay) {
+    # 22 # reduce epsilon with strategy
+    if (exponentialDecay) {
       localStepSize <- ceiling(vcount(input_graph) * stepSize)
       epsilon <- min(head(node_features[order(depth, decreasing = T)], localStepSize)$depth)
     } else {
       epsilon <- epsilon - stepSize
     }
-    #21
+    # 21
     alpha <- 1 - epsilon
-    
   }
   return(result)
-  #
 }
 
 
@@ -103,15 +100,14 @@ alphaCore <- function(input_graph,
 #' @param graph An igraph object
 #' @return A data.table with node names, indegree and strength
 computeNodeFeaturFun <- function(graph) {
-
   # get node names
   nodes <- V(graph)$name
   # compute indegree
   indegree <- degree(graph, mode = "in")
   # compute sum of incoming weights (a.k.a. "strength")
-  strength <- strength(graph, mode="in")
+  strength <- strength(graph, mode = "in")
   # combine results
-  nodeFeatures <- data.table(node=nodes, indegree=indegree, strength=strength)
+  nodeFeatures <- data.table(node = nodes, indegree = indegree, strength = strength)
   return(nodeFeatures)
 }
 
@@ -123,36 +119,36 @@ computeNodeFeaturFun <- function(graph) {
 #' @param graph An igraph object
 #' @param features A character vector of features to compute
 #' @return A data.table with node names and the requested features
-computeNodeFeatures <- function(graph, features = c("indegree","strength")) {
+computeNodeFeatures <- function(graph, features = c("indegree", "strength")) {
   nodeFeatures <- data.table(node = V(graph)$name)
-  if("degree" %in% features) {
+  if ("degree" %in% features) {
     nodeFeatures[, indegree := degree(graph, mode = "all")]
   }
-  if("indegree" %in% features) {
+  if ("indegree" %in% features) {
     nodeFeatures[, indegree := degree(graph, mode = "in")]
   }
-  if("outdegree" %in% features) {
+  if ("outdegree" %in% features) {
     nodeFeatures[, outdegree := degree(graph, mode = "out")]
   }
-  if("strength" %in% features) {
+  if ("strength" %in% features) {
     nodeFeatures[, strength := strength(graph, mode = "all")]
   }
-  if("instrength" %in% features) {
+  if ("instrength" %in% features) {
     nodeFeatures[, instrength := strength(graph, mode = "in")]
   }
-  if("outstrength" %in% features) {
+  if ("outstrength" %in% features) {
     nodeFeatures[, outstrength := strength(graph, mode = "out")]
   }
-  if("triangles" %in% features) {
+  if ("triangles" %in% features) {
     nodeFeatures[, triangles := count_triangles(graph)]
   }
-  if("neighborhoodsize" %in% features) {
+  if ("neighborhoodsize" %in% features) {
     nodeFeatures[, neighborhoodsize := neighborhood.size(graph, mode = "all", mindist = 1)]
   }
-  if("inneighborhoodsize" %in% features) {
+  if ("inneighborhoodsize" %in% features) {
     nodeFeatures[, inneighborhoodsize := neighborhood.size(graph, mode = "in", mindist = 1)]
   }
-  if("outneighborhoodsize" %in% features) {
+  if ("outneighborhoodsize" %in% features) {
     nodeFeatures[, outneighborhoodsize := neighborhood.size(graph, mode = "out", mindist = 1)]
   }
   return(nodeFeatures[])
@@ -176,7 +172,7 @@ customNodeFeatures <- function(features) {
 #' @param features Features to extract: "all" for all numeric attributes, or a character vector of specific features
 #' @return A data.table with node names and requested features
 extractFeatures <- function(graph, features = "all") {
-  #If the user explicitly requested a feature list, compute those
+  # If the user explicitly requested a feature list, compute those
   if (!identical(features, "all")) {
     df <- computeNodeFeatures(graph, features = features)
     missing <- setdiff(features, names(df))
@@ -190,11 +186,11 @@ extractFeatures <- function(graph, features = "all") {
     return(df)
   }
 
-  #Otherwise, pull *all* numeric vertex attributes off the graph
+  # Otherwise, pull *all* numeric vertex attributes off the graph
   attrs <- vertex.attributes(graph)
   numeric_names <- names(attrs)[sapply(attrs, is.numeric)]
 
-  #If none are present, fall back to the original indegree+strength
+  # If none are present, fall back to the original indegree+strength
   if (length(numeric_names) == 0L) {
     message(
       "No numeric vertex attributes found; reverting to indegree+strength."
@@ -202,7 +198,7 @@ extractFeatures <- function(graph, features = "all") {
     return(computeNodeFeaturFun(graph))
   }
 
-  #Build a data.table: one column 'node', then each numeric attribute
+  # Build a data.table: one column 'node', then each numeric attribute
   dt <- data.table(node = V(graph)$name)
   for (nm in numeric_names) dt[[nm]] <- attrs[[nm]]
   return(dt[])
@@ -218,7 +214,7 @@ extractFeatures <- function(graph, features = "all") {
 #' @param sigma_inv The inverse covariance matrix
 #' @return A vector of depth values
 mhdOrigin <- function(data, sigma_inv) {
-  origin <- rep(0,ncol(data)) # c(0,0,...)
+  origin <- rep(0, ncol(data)) # c(0,0,...)
   # We reuse the Mahalanobis distance implementation of the stats package,
   # which returns the squared Mahalanobis distance: (x - μ)' Σ^-1 (x - μ) = D^2
   # To arrive at the Mahalanobis Depth to the origin, we only need to add 1 and
